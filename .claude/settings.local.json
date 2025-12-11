@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"c:\\Users\\daefr\\GitHub\\grid-guardian\\grid-guardian\\README.md\")",
+      "Bash(find:*)",
+      "Bash(install.bat)",
+      "Bash(cmd /c install.bat)",
+      "Bash(python -m venv:*)",
+      "Bash(dir:*)",
+      "Bash(venv\\Scripts\\python.exe -m pip install --upgrade pip)",
+      "Bash(venv/Scripts/python.exe -m pip:*)",
+      "Bash(cmd /c test_generator.bat)",
+      "Bash(venv/Scripts/python.exe:*)",
+      "Bash(timeout:*)",
+      "Bash(cmd /c \"dir data\\test\")",
+      "Bash(cp:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(start cmd /c \"..\\venv\\Scripts\\streamlit.exe run Home.py\")",
+      "Bash(venv\\Scripts\\python.exe -m pip:*)",
+      "Bash(start cmd /c \"venv\\Scripts\\streamlit.exe run app\\Home.py\")",
+      "Bash(venvScriptspython.exe test_generator.py)",
+      "Bash(taskkill:*)",
+      "Bash(start cmd /c \"cd /d c:\\Users\\daefr\\GitHub\\grid-guardian\\grid-guardian && venv\\Scripts\\streamlit.exe run app\\Home.py --server.headless true\")",
+      "Bash(ping:*)",
+      "Bash(venv\\Scripts\\streamlit.exe run:*)",
+      "Bash(venv/Scripts/streamlit.exe run:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
