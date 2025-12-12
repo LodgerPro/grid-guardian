@@ -24,7 +24,15 @@
       "Bash(start cmd /c \"cd /d c:\\Users\\daefr\\GitHub\\grid-guardian\\grid-guardian && venv\\Scripts\\streamlit.exe run app\\Home.py --server.headless true\")",
       "Bash(ping:*)",
       "Bash(venv\\Scripts\\streamlit.exe run:*)",
-      "Bash(venv/Scripts/streamlit.exe run:*)"
+      "Bash(venv/Scripts/streamlit.exe run:*)",
+      "Bash(venvScriptspython.exe -m pytest tests/ -v --tb=short)",
+      "Bash(venv\\Scripts\\python.exe -m pytest:*)",
+      "Bash(cmd /c \"venv\\Scripts\\python.exe -m pytest tests\\ -v --tb=short\")",
+      "Bash(cmd /c \"cd tests && ..\\venv\\Scripts\\python.exe -m pytest . -v --tb=short 2>&1\")",
+      "Bash(if not exist testsreports mkdir testsreports)",
+      "Bash(cmd /c \"dir tests\\reports /b\")",
+      "Bash(start tests/reports/test_report.html)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": []
