@@ -1,0 +1,126 @@
+# Grid Guardian - Docker Ignore File
+# Excludes unnecessary files from Docker build context
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.pyc
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+virtualenv/
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+.tox/
+tests/reports/
+coverage.xml
+*.log
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.lnk
+
+# Git
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Documentation (not needed in container)
+docs/
+*.md
+!DOCKER.md
+analysis/
+TESTING_COMPLETE.md
+
+# Logs (mount as volume instead)
+*.log
+logs/
+
+# Test data (too large)
+data/test/
+*.csv.backup
+*.csv.tmp
+
+# Model files (mount as volume)
+models/saved/*.h5
+models/saved/*.pkl
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Claude AI
+.claude/
+
+# Environment files
+.env
+.env.*
+*.env
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+nul
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Compressed files
+*.zip
+*.tar.gz
+*.rar
+
+# Large data backups
+*.parquet.backup
+*.csv.old
+
+# Windows specific
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+# MacOS specific
+.AppleDouble
+.LSOverride
+._*
+
+# Docker files (don't include in context)
+Dockerfile.backup
+docker-compose.override.yml

@@ -32,7 +32,9 @@
       "Bash(if not exist testsreports mkdir testsreports)",
       "Bash(cmd /c \"dir tests\\reports /b\")",
       "Bash(start tests/reports/test_report.html)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(if not exist .streamlit mkdir .streamlit)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []
