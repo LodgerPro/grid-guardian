@@ -32,7 +32,13 @@
       "Bash(if not exist testsreports mkdir testsreports)",
       "Bash(cmd /c \"dir tests\\reports /b\")",
       "Bash(start tests/reports/test_report.html)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(if not exist .streamlit mkdir .streamlit)",
+      "Bash(ls:*)",
+      "Bash(docker:*)",
+      "Bash(docker-compose:*)",
+      "Bash(curl:*)",
+      "Bash(start http://localhost:8501)"
     ],
     "deny": [],
     "ask": []

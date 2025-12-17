@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  grid-guardian:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - PYTHON_VERSION=3.13.7
+    image: grid-guardian:latest
+    container_name: grid-guardian-app
+    ports:
+      - "8501:8501"
+    volumes:
+      # Mount data directory (read-only for safety)
+      - ./data:/app/data:ro
+      # Mount logs directory (read-write)
+      - ./logs:/app/logs
+      # Mount models directory (for loading trained models)
+      - ./models:/app/models
+    environment:
+      - PYTHONUNBUFFERED=1
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      - STREAMLIT_THEME_BASE=dark
+      - STREAMLIT_THEME_PRIMARY_COLOR=#FF4B4B
+      - TZ=Europe/Moscow
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - grid-guardian-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  grid-guardian-network:
+    driver: bridge
