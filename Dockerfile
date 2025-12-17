@@ -65,16 +65,12 @@ COPY app/ ./app/
 COPY src/ ./src/
 COPY models/ ./models/
 
-# Copy configuration files
-COPY config/ ./config/ 2>/dev/null || true
-
 # Copy Streamlit configuration
-COPY .streamlit/config.toml ./.streamlit/config.toml 2>/dev/null || true
+COPY .streamlit/ ./.streamlit/
 
-# Copy data files (if they exist)
-COPY data/raw/*.parquet ./data/raw/ 2>/dev/null || true
-COPY data/processed/*.csv ./data/processed/ 2>/dev/null || true
-COPY data/processed/*.parquet ./data/processed/ 2>/dev/null || true
+# Copy data files (using wildcard that won't fail if missing)
+# Docker will copy files if they exist, skip if directory is empty
+COPY data/ ./data/
 
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser && \

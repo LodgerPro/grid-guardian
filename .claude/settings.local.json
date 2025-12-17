@@ -34,7 +34,11 @@
       "Bash(start tests/reports/test_report.html)",
       "Bash(echo:*)",
       "Bash(if not exist .streamlit mkdir .streamlit)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(docker:*)",
+      "Bash(docker-compose:*)",
+      "Bash(curl:*)",
+      "Bash(start http://localhost:8501)"
     ],
     "deny": [],
     "ask": []
