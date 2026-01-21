@@ -1,0 +1,46 @@
+# Configuration for PR labeler
+
+# Documentation changes
+documentation:
+  - '**/*.md'
+  - 'docs/**/*'
+
+# Tests
+tests:
+  - 'tests/**/*'
+  - '**/*test*.py'
+
+# CI/CD
+ci/cd:
+  - '.github/**/*'
+  - 'Dockerfile'
+  - 'docker-compose.yml'
+  - '.dockerignore'
+
+# Application code
+app:
+  - 'app/**/*'
+
+# Source code
+src:
+  - 'src/**/*'
+
+# Models
+models:
+  - 'models/**/*'
+
+# Data
+data:
+  - 'data/**/*'
+
+# Configuration
+config:
+  - 'config/**/*'
+  - 'requirements.txt'
+  - 'pytest.ini'
+  - '.streamlit/**/*'
+
+# Dependencies
+dependencies:
+  - 'requirements.txt'
+  - 'requirements-dev.txt'

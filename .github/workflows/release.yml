@@ -1,0 +1,226 @@
+name: Release & Deploy
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Get the latest tag
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+        if [ -z "$LATEST_TAG" ]; then
+          echo "No previous tag found, getting all commits"
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+        else
+          echo "Generating changelog since $LATEST_TAG"
+          CHANGELOG=$(git log $LATEST_TAG..HEAD --pretty=format:"- %s (%h)" --no-merges)
+        fi
+
+        # Save changelog to file
+        echo "$CHANGELOG" > CHANGELOG.txt
+        echo "Generated changelog"
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: Release ${{ github.ref_name }}
+        body_path: CHANGELOG.txt
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-artifacts:
+    name: Build Release Artifacts
+    runs-on: ubuntu-latest
+    needs: create-release
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install wheel setuptools
+
+    - name: Generate data
+      run: |
+        python data/generate_data.py
+
+    - name: Run preprocessing
+      run: |
+        python src/preprocessing.py
+      continue-on-error: true
+
+    - name: Run feature engineering
+      run: |
+        python src/feature_engineering.py
+      continue-on-error: true
+
+    - name: Create distribution package
+      run: |
+        # Create a dist directory
+        mkdir -p dist
+
+        # Copy necessary files
+        cp -r app dist/
+        cp -r src dist/
+        cp -r models dist/
+        cp -r data dist/
+        cp -r config dist/
+        cp requirements.txt dist/
+        cp README.md dist/
+        cp LICENSE dist/
+        cp docker-compose.yml dist/
+        cp Dockerfile dist/
+
+        # Create tarball
+        tar -czf grid-guardian-${{ github.ref_name }}.tar.gz dist/
+
+        # Create zip
+        zip -r grid-guardian-${{ github.ref_name }}.zip dist/
+
+    - name: Upload Release Assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          grid-guardian-*.tar.gz
+          grid-guardian-*.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test-release:
+    name: Test Release Package
+    runs-on: ${{ matrix.os }}
+    needs: build-artifacts
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.9', '3.13']
+
+    steps:
+    - name: Download release artifact
+      uses: robinraju/release-downloader@v1
+      with:
+        tag: ${{ github.ref_name }}
+        fileName: 'grid-guardian-*.tar.gz'
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Extract and test
+      run: |
+        tar -xzf grid-guardian-*.tar.gz
+        cd dist
+        pip install -r requirements.txt
+        python -c "import streamlit; import pandas; import numpy; print('Dependencies OK')"
+
+  docker-release:
+    name: Build & Push Release Docker Image
+    runs-on: ubuntu-latest
+    needs: create-release
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Log in to Docker Hub
+      if: secrets.DOCKERHUB_USERNAME != ''
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+      continue-on-error: true
+
+    - name: Extract version from tag
+      id: version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "MAJOR=$(echo $VERSION | cut -d. -f1)" >> $GITHUB_OUTPUT
+        echo "MINOR=$(echo $VERSION | cut -d. -f1-2)" >> $GITHUB_OUTPUT
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        platforms: linux/amd64,linux/arm64
+        tags: |
+          ghcr.io/${{ github.repository }}:latest
+          ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}
+          ghcr.io/${{ github.repository }}:${{ steps.version.outputs.MAJOR }}
+          ghcr.io/${{ github.repository }}:${{ steps.version.outputs.MINOR }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  notify:
+    name: Release Notification
+    runs-on: ubuntu-latest
+    needs: [create-release, build-artifacts, test-release, docker-release]
+    if: always()
+
+    steps:
+    - name: Release Summary
+      run: |
+        echo "## 🚀 Release ${{ github.ref_name }} Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Results:" >> $GITHUB_STEP_SUMMARY
+        echo "- **GitHub Release**: ${{ needs.create-release.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build Artifacts**: ${{ needs.build-artifacts.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Test Release**: ${{ needs.test-release.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Docker Release**: ${{ needs.docker-release.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📦 Docker Images:" >> $GITHUB_STEP_SUMMARY
+        echo "- \`ghcr.io/${{ github.repository }}:latest\`" >> $GITHUB_STEP_SUMMARY
+        echo "- \`ghcr.io/${{ github.repository }}:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📥 Download:" >> $GITHUB_STEP_SUMMARY
+        echo "Release artifacts are available at: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY

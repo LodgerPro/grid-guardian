@@ -1,0 +1,259 @@
+name: Scheduled Tests & Health Check
+
+on:
+  schedule:
+    # Run every day at 3 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  nightly-tests:
+    name: Nightly Full Test Suite
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Generate fresh data
+      run: |
+        python data/generate_data.py
+
+    - name: Run full test suite
+      run: |
+        pytest tests/ -v --tb=long --cov=src --cov=app --cov-report=html --cov-report=term
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: nightly-coverage-report
+        path: htmlcov/
+        retention-days: 30
+
+  dependency-updates:
+    name: Check Dependency Updates
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install pip-tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install pip-tools pip-audit
+
+    - name: Check outdated packages
+      run: |
+        pip list --outdated > outdated-packages.txt
+        cat outdated-packages.txt
+
+    - name: Security audit
+      run: |
+        pip-audit -r requirements.txt --format json > security-audit.json
+      continue-on-error: true
+
+    - name: Upload reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: dependency-reports
+        path: |
+          outdated-packages.txt
+          security-audit.json
+        retention-days: 30
+
+  performance-benchmark:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Generate data
+      run: python data/generate_data.py
+
+    - name: Run performance tests
+      run: |
+        pytest tests/test_performance.py -v --tb=short
+
+    - name: Benchmark preprocessing
+      run: |
+        python -m timeit -n 10 -r 5 "import sys; sys.path.insert(0, 'src'); from preprocessing import preprocess_data; preprocess_data()" > benchmark-results.txt || true
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-benchmarks
+        path: benchmark-results.txt
+        retention-days: 90
+
+  docker-health:
+    name: Docker Image Health Check
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      run: |
+        docker build -t grid-guardian-test .
+
+    - name: Run container health check
+      run: |
+        # Start container
+        docker run -d --name test-health -p 8501:8501 grid-guardian-test
+
+        # Wait and check health
+        sleep 45
+
+        # Check if container is still running
+        if ! docker ps | grep test-health; then
+          echo "Container is not running!"
+          docker logs test-health
+          exit 1
+        fi
+
+        # Health check
+        for i in {1..10}; do
+          if curl -f http://localhost:8501/_stcore/health; then
+            echo "Health check passed!"
+            break
+          fi
+          sleep 5
+        done
+
+        # Cleanup
+        docker stop test-health
+        docker rm test-health
+
+    - name: Check image size
+      run: |
+        docker images grid-guardian-test --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
+
+  repository-health:
+    name: Repository Health Check
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check file structure
+      run: |
+        echo "## 📁 Repository Structure Health" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Check required files
+        required_files=(
+          "README.md"
+          "requirements.txt"
+          "Dockerfile"
+          "docker-compose.yml"
+          ".gitignore"
+          "pytest.ini"
+        )
+
+        echo "### Required Files:" >> $GITHUB_STEP_SUMMARY
+        for file in "${required_files[@]}"; do
+          if [ -f "$file" ]; then
+            echo "- ✅ $file" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ $file (missing)" >> $GITHUB_STEP_SUMMARY
+          fi
+        done
+
+        # Check required directories
+        required_dirs=(
+          "app"
+          "src"
+          "models"
+          "data"
+          "tests"
+          ".github/workflows"
+        )
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Required Directories:" >> $GITHUB_STEP_SUMMARY
+        for dir in "${required_dirs[@]}"; do
+          if [ -d "$dir" ]; then
+            echo "- ✅ $dir" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ $dir (missing)" >> $GITHUB_STEP_SUMMARY
+          fi
+        done
+
+    - name: Check Python files syntax
+      run: |
+        python -m py_compile app/**/*.py src/**/*.py models/**/*.py tests/**/*.py || true
+
+    - name: Count lines of code
+      run: |
+        echo "### 📊 Code Statistics:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        find . -name "*.py" -not -path "./venv/*" -not -path "./.git/*" | xargs wc -l | tail -1 >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  notify:
+    name: Send Notification
+    runs-on: ubuntu-latest
+    needs: [nightly-tests, dependency-updates, performance-benchmark, docker-health, repository-health]
+    if: always()
+
+    steps:
+    - name: Create summary
+      run: |
+        echo "## 🌙 Nightly Health Check Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Date**: $(date -u)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Results:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Tests**: ${{ needs.nightly-tests.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Dependencies**: ${{ needs.dependency-updates.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Performance**: ${{ needs.performance-benchmark.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Docker**: ${{ needs.docker-health.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Repository**: ${{ needs.repository-health.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Check if any job failed
+        if [[ "${{ needs.nightly-tests.result }}" == "failure" ]] || \
+           [[ "${{ needs.dependency-updates.result }}" == "failure" ]] || \
+           [[ "${{ needs.performance-benchmark.result }}" == "failure" ]] || \
+           [[ "${{ needs.docker-health.result }}" == "failure" ]] || \
+           [[ "${{ needs.repository-health.result }}" == "failure" ]]; then
+          echo "⚠️ **Some checks failed! Please review the logs.**" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✅ **All checks passed!**" >> $GITHUB_STEP_SUMMARY
+        fi

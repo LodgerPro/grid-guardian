@@ -38,7 +38,9 @@
       "Bash(docker:*)",
       "Bash(docker-compose:*)",
       "Bash(curl:*)",
-      "Bash(start http://localhost:8501)"
+      "Bash(start http://localhost:8501)",
+      "Bash(if not exist .github mkdir .github)",
+      "Bash(if not exist .githubworkflows mkdir .githubworkflows)"
     ],
     "deny": [],
     "ask": []
