@@ -1,0 +1,87 @@
+name: Dependency Update Check
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  check-updates:
+    name: Check for Dependency Updates
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install pip-tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install pip-tools pip-review
+
+    - name: Check for outdated packages
+      id: outdated
+      run: |
+        echo "## 📦 Outdated Dependencies Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        pip install -r requirements.txt
+
+        echo "### Currently Installed Versions:" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        pip list --format=freeze >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "### Available Updates:" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        pip list --outdated --format=columns >> outdated.txt
+        cat outdated.txt >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+    - name: Security audit
+      run: |
+        pip install pip-audit
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔒 Security Vulnerabilities:" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        pip-audit -r requirements.txt || echo "No vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+      continue-on-error: true
+
+    - name: Upload outdated packages list
+      uses: actions/upload-artifact@v4
+      with:
+        name: outdated-dependencies
+        path: outdated.txt
+        retention-days: 30
+
+  dependabot-auto-merge:
+    name: Auto-merge Dependabot PRs
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    permissions:
+      pull-requests: write
+      contents: write
+
+    steps:
+    - name: Dependabot metadata
+      id: metadata
+      uses: dependabot/fetch-metadata@v1
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Auto-merge minor and patch updates
+      if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor'
+      run: |
+        gh pr merge --auto --merge "$PR_URL"
+      env:
+        PR_URL: ${{github.event.pull_request.html_url}}
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
