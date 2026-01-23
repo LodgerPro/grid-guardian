@@ -10,7 +10,6 @@ import pytest
 import sys
 import os
 from pathlib import Path
-import importlib.util
 
 
 class TestProjectStructure:
