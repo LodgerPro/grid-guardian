@@ -1,0 +1,46 @@
+name: Smoke Tests - Quick Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  smoke-tests:
+    name: Smoke Tests - Quick Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+        cache: 'pip'
+
+    - name: Install core dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pandas numpy streamlit
+
+    - name: Run smoke tests
+      run: |
+        pytest tests/test_smoke.py -v --tb=line
+
+    - name: Smoke Test Summary
+      if: always()
+      run: |
+        echo "## 🚀 Smoke Tests Completed" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Quick validation tests finished!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "These tests verify:" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Python environment works" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Core packages import correctly" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Project structure is valid" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Basic operations function" >> $GITHUB_STEP_SUMMARY

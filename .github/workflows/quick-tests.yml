@@ -1,0 +1,135 @@
+name: Быстрые Тесты ⚡
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  smoke-tests:
+    name: Smoke Tests - Базовая Валидация 🔥
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+    - name: 📥 Получить код из репозитория
+      uses: actions/checkout@v4
+
+    - name: 🐍 Установить Python 3.13
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+        cache: 'pip'
+
+    - name: 📦 Установить зависимости
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pandas numpy streamlit
+
+    - name: 🔥 Запустить Smoke Tests
+      run: |
+        pytest tests/test_quick_validation.py -v -m smoke --tb=line
+
+    - name: 📊 Результат Smoke Tests
+      if: always()
+      run: |
+        echo "## 🔥 Smoke Tests - Результаты" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Базовые проверки выполнены!" >> $GITHUB_STEP_SUMMARY
+
+  structure-tests:
+    name: CI Tests - Структура Проекта 🏗️
+    runs-on: ubuntu-latest
+    needs: smoke-tests
+
+    steps:
+    - name: 📥 Получить код из репозитория
+      uses: actions/checkout@v4
+
+    - name: 🐍 Установить Python 3.13
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+        cache: 'pip'
+
+    - name: 📦 Установить зависимости
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pandas numpy streamlit
+
+    - name: 🏗️ Проверить структуру проекта
+      run: |
+        pytest tests/test_quick_validation.py -v -m ci --tb=line
+
+    - name: 📊 Результат CI Tests
+      if: always()
+      run: |
+        echo "## 🏗️ CI Tests - Результаты" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Структура проекта проверена!" >> $GITHUB_STEP_SUMMARY
+
+  full-validation:
+    name: Полная Валидация - Все Быстрые Тесты 🎯
+    runs-on: ubuntu-latest
+    needs: [smoke-tests, structure-tests]
+
+    steps:
+    - name: 📥 Получить код из репозитория
+      uses: actions/checkout@v4
+
+    - name: 🐍 Установить Python 3.13
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+        cache: 'pip'
+
+    - name: 📦 Установить все зависимости
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: 🎯 Запустить все быстрые тесты
+      run: |
+        pytest tests/test_quick_validation.py -v --tb=short
+
+    - name: 📊 Итоговые результаты
+      if: always()
+      run: |
+        echo "## 🎯 Полная Валидация - Результаты" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Все быстрые тесты выполнены!" >> $GITHUB_STEP_SUMMARY
+
+  summary:
+    name: Итоговая Сводка 📋
+    runs-on: ubuntu-latest
+    needs: [smoke-tests, structure-tests, full-validation]
+    if: always()
+
+    steps:
+    - name: 📋 Создать итоговую сводку
+      run: |
+        echo "# 🎯 Результаты Быстрых Тестов" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Статус Проверок:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Проверка | Статус |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| 🔥 Smoke Tests | ${{ needs.smoke-tests.result == 'success' && '✅ Пройдено' || '❌ Провалено' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| 🏗️ CI Tests | ${{ needs.structure-tests.result == 'success' && '✅ Пройдено' || '❌ Провалено' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| 🎯 Полная Валидация | ${{ needs.full-validation.result == 'success' && '✅ Пройдено' || '❌ Провалено' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Проверка общего статуса
+        if [[ "${{ needs.smoke-tests.result }}" == "success" ]] && \
+           [[ "${{ needs.structure-tests.result }}" == "success" ]] && \
+           [[ "${{ needs.full-validation.result }}" == "success" ]]; then
+          echo "## ✅ Все тесты успешно пройдены!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Код готов к merge! 🚀" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "## ⚠️ Некоторые тесты не прошли" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Проверьте логи выше для деталей." >> $GITHUB_STEP_SUMMARY
+        fi
