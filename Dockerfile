@@ -2,7 +2,7 @@
 # Python 3.13.7 (matches development environment)
 # Multi-stage build for optimized image size
 
-FROM python:3.13.7-slim as builder
+FROM python:3.14.3-slim as builder
 
 LABEL maintainer="Grid Guardian Team"
 LABEL description="Predictive Maintenance System for Electrical Grid Equipment"
@@ -35,7 +35,7 @@ RUN pip install --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
 # Final stage
-FROM python:3.13.7-slim
+FROM python:3.14.3-slim
 
 WORKDIR /app
 
